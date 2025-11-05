@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astro-Putt: Solar System Golf Course</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght=700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #030712; /* Deep Space Black */
+            --primary-color: #a78bfa; /* Default Lavender */
+            --accent-color: #4ade80; /* Neon Green */
+            --warning-color: #fcd34d; /* Amber */
+            --danger-color: #f87171; /* Red */
+            /* Define a desired canvas aspect ratio (Width / Height) */
+            --canvas-aspect-ratio: 2.5; 
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            /* Allow content to center even when very tall */
+            align-items: flex-start;
+        }
+        .container {
+            background-color: #111827; /* Darker Slate */
+            border-radius: 1.5rem;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 50px rgba(167, 139, 250, 0.15);
+            /* Removed fixed max-width and used responsive width */
+            width: 95%;
+            max-width: 1100px; 
+            padding: 1rem; /* Reduced padding for smaller screens */
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+        }
+        @media (min-width: 768px) {
+            .container {
+                padding: 2rem;
+            }
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--accent-color);
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+        }
+        canvas {
+            background: linear-gradient(180deg, #111827 0%, #030712 100%);
+            border-radius: 0.75rem;
+            border: 3px solid #374151;
+            cursor: crosshair;
+            margin-top: 1.5rem;
+            touch-action: none;
+            /* Use width: 100% for responsiveness */
+            width: 100%;
+            height: auto;
+            /* This is a fallback, but JS will set the actual height */
+            aspect-ratio: var(--canvas-aspect-ratio); 
+        }
+        .slider-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 10px;
+            background: #374151;
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.9;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(167, 139, 250, 0.8);
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            text-transform: uppercase;
+        }
+        .btn-launch {
+            background-color: var(--accent-color);
+            color: #111827;
+        }
+        .btn-launch:hover {
+            background-color: #6ee7b7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+        }
+        .btn-reset {
+            background-color: #374151;
+            color: #d1d5db;
+        }
+        #stats-panel {
+            background-color: #1f2937;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid var(--primary-color);
+        }
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--accent-color);
+        }
+        #messageBox {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+        #messageBox.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #key-difference-display {
+            color: #94a3b8; /* Slate gray for subtle info */
+        }
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+        .text-danger { color: var(--danger-color); }
+        .border-danger { border-color: var(--danger-color) !important; }
+
+        /* Media Query to adjust layout on smaller screens */
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+                border-radius: 1rem;
+            }
+            h1 {
+                font-size: 1.75rem; /* Smaller title on mobile */
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+            #stats-panel {
+                grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 columns on mobile */
+            }
+            .md\:col-span-2 { /* Fix Motion Status layout on mobile */
+                grid-column: span 1 / span 1;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="container">
+        <h1 class="text-4xl font-extrabold text-center mb-6 border-b pb-4 border-gray-700">ASTRO-PUTT: SOLAR SYSTEM COURSE</h1>
+
+        <div id="level-display" class="text-center mb-4 text-xl font-bold font-mono text-primary">
+            Hole <span id="current-hole-num">1</span> of 9: <span id="current-planet-name">Moon (Low G)</span>
+        </div>
+        <div class="text-center mb-6 text-sm italic text-gray-400">
+            <p class="text-lg font-semibold text-primary">Gravity: <span id="current-gravity-value">1.62</span> m/s²</p>
+            <p id="key-difference-display" class="mt-1 text-sm italic"></p>
+        </div>
+        
+        <!-- Updated to 3 columns on desktop, 1 on mobile -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-6">
+            <div id="timer-display" class="p-3 bg-red-800/20 rounded-lg border border-red-500/50">
+                <p class="text-xs uppercase text-red-300 font-semibold">Time Remaining</p>
+                <p id="time-left-value" class="text-3xl font-orbitron text-red-400">--</p>
+            </div>
+            <!-- Adjusted layout to use 2 columns only on desktop (md:col-span-2) and 1 on mobile -->
+            <div id="motion-status-display" class="md:col-span-2 p-3 bg-indigo-800/20 rounded-lg border border-indigo-500/50">
+                <p class="text-xs uppercase text-indigo-300 font-semibold">Probe Motion</p>
+                <div class="flex flex-col sm:flex-row justify-center space-y-1 sm:space-y-0 sm:space-x-4">
+                    <p>Speed: <span id="current-speed-value" class="font-orbitron text-lg text-indigo-400">0.00</span> m/s</p>
+                    <p>Status: <span id="motion-status" class="font-orbitron text-lg text-indigo-400">Ready</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Initial Velocity Slider -->
+            <div class="control-group">
+                <label for="velocity-slider" class="slider-label flex justify-between">
+                    Initial Velocity ($v_0$): <span id="velocity-value">50</span> m/s
+                </label>
+                <input type="range" id="velocity-slider" min="10" max="100" value="50" step="1">
+            </div>
+
+            <!-- Launch Angle Slider -->
+            <div class="control-group">
+                <label for="angle-slider" class="slider-label flex justify-between">
+                    Launch Angle ($\theta$): <span id="angle-value">45</span>°
+                </label>
+                <input type="range" id="angle-slider" min="0" max="90" value="45" step="1">
+            </div>
+        </div>
+
+        <!-- Stats and Calculations Panel - Adjusted for better responsiveness -->
+        <div id="stats-panel" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center mb-6">
+            <div>
+                <p class="text-gray-400 text-sm uppercase">Hole Launches</p>
+                <p id="hole-launches-count" class="text-2xl stat-value">0</p>
+            </div>
+            <div>
+                <p class="text-gray-400 text-sm uppercase">Total Score</p>
+                <p id="total-score-count" class="text-2xl stat-value">0</p>
+            </div>
+            <div>
+                <p class="text-gray-400 text-sm uppercase">Best Miss (m)</p>
+                <p id="best-miss" class="text-xl stat-value">--</p>
+            </div>
+            <div>
+                <p class="text-gray-400 text-sm uppercase">Max Range (m)</p>
+                <p id="max-range" class="text-xl stat-value">--</p>
+            </div>
+             <div>
+                <p class="text-gray-400 text-sm uppercase">Max Height (m)</p>
+                <p id="max-height" class="text-xl stat-value">--</p>
+            </div>
+        </div>
+
+        <!-- Canvas for Simulation: Removed fixed width/height attributes for JS control -->
+        <canvas id="physics-canvas"></canvas>
+
+        <div class="flex justify-center mt-6 space-x-4">
+            <button id="launch-button" class="btn btn-launch">
+                LAUNCH PROBE!
+            </button>
+            <button id="next-hole-button" class="btn btn-reset hidden" disabled>
+                Next Hole &raquo;
+            </button>
+            <button id="reset-button" class="btn btn-reset">
+                Restart Game
+            </button>
+        </div>
+
+        <!-- Message Box -->
+        <div id="messageBox" class="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 transition-opacity duration-300">
+            <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center max-w-sm border-t-4 border-accent">
+                <p id="messageTitle" class="text-2xl font-bold mb-4 text-white font-mono"></p>
+                <p id="messageText" class="text-md text-gray-300 mb-6"></p>
+                <button id="closeMessage" class="btn btn-launch w-full">OK</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // Global variables for Firebase setup (MANDATORY)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Canvas setup
+        const canvas = document.getElementById('physics-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Game Configuration (LEVELS) ---
+        const LEVELS = [
+            // UPDATED timeLimit based on your request (starting at 40s) and difficulty
+            { name: 'Moon (Low G)', g: 1.62, targetDistance: 150, planetColor: '#cbd5e0', soilColor: '#4b5563', keyDiff: '1/6th of Earth\'s gravity. Prepare for massive range!', timeLimit: 40 }, 
+            { name: 'Mercury (Low G)', g: 3.7, targetDistance: 80, planetColor: '#e5e7eb', soilColor: '#374151', keyDiff: 'Similar gravity to Mars. Low flight and quick landing.', timeLimit: 45 }, 
+            { name: 'Mars (Low G)', g: 3.72, targetDistance: 85, planetColor: '#ef4444', soilColor: '#991b1b', keyDiff: 'Long range shots are easy here. Adjust velocity carefully.', timeLimit: 45 }, 
+            { name: 'Venus (High G)', g: 8.87, targetDistance: 65, planetColor: '#fde047', soilColor: '#d97706', keyDiff: 'Gravity is almost Earth-like. The probe will come down fast.', timeLimit: 35 }, 
+            { name: 'Earth (Standard G)', g: 9.81, targetDistance: 60, planetColor: '#34d399', soilColor: '#10b981', keyDiff: 'The baseline. Your range is significantly reduced from Mars.', timeLimit: 35 }, 
+            { name: 'Saturn (High G)', g: 10.44, targetDistance: 55, planetColor: '#fca5a5', soilColor: '#be123c', keyDiff: 'Gravity is slightly stronger than Earth. Aim high, shoot hard.', timeLimit: 30 }, 
+            { name: 'Uranus (High G)', g: 8.69, targetDistance: 68, planetColor: '#22d3ee', soilColor: '#0e7490', keyDiff: 'Slightly weaker than Earth. Long target requires precision.', timeLimit: 35 }, 
+            { name: 'Neptune (High G)', g: 11.15, targetDistance: 50, planetColor: '#2563eb', soilColor: '#1e3a8a', keyDiff: 'Stronger gravity demands higher velocity/angle for range.', timeLimit: 30 }, 
+            { name: 'Jupiter (Extreme G)', g: 24.79, targetDistance: 30, planetColor: '#fb923c', soilColor: '#9a3412', keyDiff: 'Over 2.5x Earth\'s gravity! Shortest target, but hardest to hit.', timeLimit: 25 }, // Toughest challenge, shortest time
+        ];
+
+        // --- Game State Variables ---
+        let currentLevelIndex = 0;
+        let totalScore = 0; // Total launches across all holes
+        let holeLaunches = 0;
+        let bestMissDistance = Infinity; // Tracked in meters
+        
+        // New variables for Speed Simulation and Timer
+        let timerInterval = null;
+        let timeLeft = 0;
+        let previousSpeed = 0;
+
+        // Physics parameters, initialized from the first level
+        let g = LEVELS[0].g;
+        let TARGET_DISTANCE = LEVELS[0].targetDistance;
+        let v0 = 50;
+        let angleDeg = 45;
+
+        // Constant world dimensions (Meters)
+        const WORLD_WIDTH_M = 200; // Max world width is 200m
+        const WORLD_HEIGHT_M = 100; // Max world height
+        const HIT_TOLERANCE_M = 1.5; // Tolerance for a hit in world units (1.5 meters)
+        const GROUND_Y_WORLD = 0;
+
+        // Dynamic scale variables (Calculated and updated on resize)
+        let SCALE_X = 1;
+        let SCALE_Y = 1;
+
+        let projectile = {
+            x: 0,
+            y: 0,
+            t: 0,
+            isFlying: false,
+            trajectory: [],
+            status: 'ready'
+        };
+
+        // Starfield data
+        const stars = [];
+        const numStars = 150;
+
+
+        // --- New: Responsive Canvas and Scaling Logic ---
+        
+        /**
+         * Adjusts canvas dimensions based on container size and maintains aspect ratio.
+         * Crucially, updates the physics scale factors (SCALE_X, SCALE_Y).
+         */
+        function resizeCanvas() {
+            // Get the width of the canvas element as rendered by CSS (100% of container)
+            const style = getComputedStyle(canvas);
+            const cssWidth = parseFloat(style.width); 
+            
+            // Set the canvas element's attributes (for drawing resolution)
+            // Aspect ratio is 2.5:1 
+            const ASPECT_RATIO = 2.5; 
+            
+            canvas.width = cssWidth;
+            canvas.height = canvas.width / ASPECT_RATIO;
+
+            // Update the scaling factors based on new canvas resolution
+            // The world width/height is fixed, so the scale changes when the canvas size changes.
+            SCALE_X = canvas.width / WORLD_WIDTH_M;
+            SCALE_Y = canvas.height / WORLD_HEIGHT_M;
+            
+            // Re-initialize stars based on new size
+            initStars(true);
+            
+            // Redraw the trajectory to fit the new scale
+            if (projectile.status !== 'flying') {
+                precalculateTrajectory();
+            }
+            draw();
+        }
+
+
+        // --- Utility Functions ---
+
+        /**
+         * Shows a custom message box instead of alert().
+         */
+        function showMessage(title, text = "", isWin = false) {
+            const messageBox = document.getElementById('messageBox');
+            document.getElementById('messageTitle').textContent = title;
+            document.getElementById('messageText').innerHTML = text;
+            // Set border color dynamically based on win/loss
+            const accentColor = varToString('--accent-color');
+            const warningColor = varToString('--warning-color');
+            messageBox.querySelector('.border-t-4').style.borderColor = isWin ? accentColor : warningColor;
+            messageBox.classList.add('show');
+        }
+
+        /**
+         * Converts world coordinates (m) to canvas coordinates (px).
+         */
+        function worldToCanvas(x_world, y_world) {
+            const x_canvas = x_world * SCALE_X;
+            // Canvas y-origin is top-left, world y-origin is bottom-left (GROUND_Y_WORLD)
+            const y_canvas = canvas.height - (y_world * SCALE_Y); 
+            return { x: x_canvas, y: y_canvas };
+        }
+
+        /**
+         * Converts degrees to radians.
+         */
+        function degToRad(degrees) {
+            return degrees * (Math.PI / 180);
+        }
+
+        /**
+         * Gets the value of a CSS variable for drawing.
+         */
+        function varToString(variableName) {
+            return getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+        }
+
+        // --- Physics Calculations & Display ---
+
+        /**
+         * Calculates key kinematic values for the current state.
+         */
+        function calculateKinematics(v0, angleDeg, g) {
+            const angleRad = degToRad(angleDeg);
+            const v0x = v0 * Math.cos(angleRad);
+            const v0y = v0 * Math.sin(angleRad);
+
+            // Time of flight assumes landing at same height (y=0)
+            const tFlight = (2 * v0y) / g;
+            
+            // Maximum height (H)
+            const hMax = (v0y * v0y) / (2 * g);
+            
+            // Range (R)
+            const range = v0x * tFlight;
+
+            return { v0x, v0y, hMax, tFlight, range };
+        }
+
+        /**
+         * Calculates position at time t.
+         */
+        function calculatePosition(t) {
+            const { v0x, v0y, tFlight } = calculateKinematics(v0, angleDeg, g);
+            
+            if (t > tFlight && tFlight > 0) {
+                 // If time exceeds calculated flight time, the projectile is on the ground
+                 return { x: v0x * tFlight, y: GROUND_Y_WORLD };
+            }
+
+            const x = v0x * t;
+            let y = v0y * t - 0.5 * g * t * t;
+
+            // Ensure y does not go below the ground level
+            if (y < GROUND_Y_WORLD) y = GROUND_Y_WORLD;
+
+            return { x, y };
+        }
+
+        /**
+         * Calculates the components of velocity at time t.
+         */
+        function calculateVelocity(t) {
+            const { v0x, v0y } = calculateKinematics(v0, angleDeg, g);
+
+            const vx = v0x;
+            const vy = v0y - g * t;
+
+            return { vx, vy };
+        }
+
+        /**
+         * Calculates the total speed (magnitude) at time t.
+         */
+        function calculateSpeed(t) {
+            const { vx, vy } = calculateVelocity(t);
+            return Math.sqrt(vx * vx + vy * vy);
+        }
+
+        /**
+         * Calculates the final impact velocity (magnitude) at time t.
+         */
+        function calculateImpactVelocity(t) {
+            // Impact speed is calculated at the time of landing (tFlight)
+            const { tFlight } = calculateKinematics(v0, angleDeg, g);
+            return calculateSpeed(tFlight);
+        }
+
+        function updateCalculationsDisplay() {
+            const { hMax, range } = calculateKinematics(v0, angleDeg, g);
+            document.getElementById('max-range').textContent = range > 0 ? `${range.toFixed(2)}` : '--';
+            document.getElementById('max-height').textContent = hMax > 0 ? `${hMax.toFixed(2)}` : '--';
+        }
+
+        function updateGameStatsDisplay() {
+             document.getElementById('hole-launches-count').textContent = holeLaunches;
+             document.getElementById('total-score-count').textContent = totalScore;
+             document.getElementById('best-miss').textContent = bestMissDistance === Infinity ? '--' : bestMissDistance.toFixed(2);
+        }
+
+        function updateLevelDisplay() {
+            const level = LEVELS[currentLevelIndex];
+            document.getElementById('current-hole-num').textContent = currentLevelIndex + 1;
+            document.getElementById('current-planet-name').textContent = level.name;
+            document.getElementById('current-gravity-value').textContent = level.g.toFixed(2);
+            document.getElementById('key-difference-display').textContent = level.keyDiff;
+
+            // Reset UI colors based on new planet
+            document.documentElement.style.setProperty('--primary-color', level.planetColor);
+            document.getElementById('level-display').style.color = level.planetColor;
+            
+            // Re-run handleSliderChange to update calculations and preview for the new level
+            handleSliderChange();
+        }
+
+
+        // --- Drawing Functions ---
+
+        /**
+         * Initializes the random starfield.
+         * @param {boolean} clearExisting If true, clears the stars array before refilling.
+         */
+        function initStars(clearExisting = false) {
+            if (clearExisting) stars.length = 0;
+            // Only run once unless cleared
+            if (stars.length > 0) return; 
+
+            for (let i = 0; i < numStars; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * (canvas.height * 0.9),
+                    size: Math.random() * 2,
+                    brightness: Math.random() * 0.5 + 0.5
+                });
+            }
+        }
+
+        /**
+         * Draws the starfield background.
+         */
+        function drawStars() {
+            for (const star of stars) {
+                const color = `rgba(255, 255, 255, ${star.brightness})`;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                // Use the pre-calculated canvas coordinates for drawing
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2); 
+                ctx.fill();
+            }
+        }
+
+        /**
+         * Draws the ground, with dynamic color based on the level.
+         */
+        function drawGround() {
+            const level = LEVELS[currentLevelIndex];
+            const groundY = worldToCanvas(0, GROUND_Y_WORLD).y;
+
+            // Draw surface
+            ctx.fillStyle = level.soilColor;
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+            // Add a subtle horizon line
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(canvas.width, groundY);
+            ctx.stroke();
+
+            // Draw current gravity text label on the ground
+            ctx.fillStyle = '#94a3b8';
+            // Simple font size without complex scaling
+            ctx.font = `14px Inter`; 
+            ctx.textAlign = 'left';
+            ctx.fillText(`Target: ${TARGET_DISTANCE}m`, 10, canvas.height - 10);
+        }
+
+        /**
+         * Draws the target (a landing crater/zone).
+         */
+        function drawTarget() {
+            const { x: x_canvas, y: y_canvas } = worldToCanvas(TARGET_DISTANCE, 0);
+
+            // Calculate sizes based on scale
+            const pinWidth = 5; 
+            const pinHeight = 20; 
+            const flagRadius = 8; 
+            const hitRadius = HIT_TOLERANCE_M * SCALE_X; // Hit radius must scale with the X-scale
+
+            // Draw Target Pin (SVG-like)
+            ctx.fillStyle = varToString('--danger-color');
+            ctx.beginPath();
+            ctx.moveTo(x_canvas, y_canvas);
+            ctx.lineTo(x_canvas - pinWidth, y_canvas - pinHeight);
+            ctx.lineTo(x_canvas + pinWidth, y_canvas - pinHeight);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw the flag/marker circle
+            ctx.beginPath();
+            ctx.arc(x_canvas, y_canvas - pinHeight, flagRadius, 0, Math.PI * 2);
+            ctx.fillStyle = varToString('--warning-color');
+            ctx.fill();
+
+            // Landing zone (hit area)
+            ctx.beginPath();
+            ctx.arc(x_canvas, y_canvas, hitRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.2)'; // Amber transparent fill
+            ctx.fill();
+            ctx.strokeStyle = varToString('--warning-color');
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        /**
+         * Draws the trajectory path.
+         */
+        function drawTrajectory() {
+            if (projectile.trajectory.length === 0) return;
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(167, 139, 250, 0.7)'; // Lighter primary color
+            // Fixed line width for clear visibility
+            ctx.lineWidth = 3; 
+            ctx.setLineDash([5, 5]);
+
+            // Start position is always (0, 0) in world coordinates
+            const startPos = worldToCanvas(0, GROUND_Y_WORLD);
+            ctx.moveTo(startPos.x, startPos.y);
+
+            for (let i = 0; i < projectile.trajectory.length; i++) {
+                const { x, y } = projectile.trajectory[i];
+                const { x: cx, y: cy } = worldToCanvas(x, y);
+                ctx.lineTo(cx, cy);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        /**
+         * Draws the projectile as a stylized probe.
+         */
+        function drawProjectile() {
+            // Only draw if the projectile is within the visible world area
+            if (projectile.x < 0 || projectile.x > WORLD_WIDTH_M || projectile.y < GROUND_Y_WORLD) return;
+
+            const { x: cx, y: cy } = worldToCanvas(projectile.x, projectile.y);
+            // Fixed size for clear visibility regardless of scale
+            const probeRadius = 8; 
+
+            ctx.fillStyle = varToString('--accent-color');
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 1.5;
+
+            // Add glow/shadow if flying
+            if (projectile.isFlying) {
+                ctx.shadowColor = varToString('--accent-color');
+                ctx.shadowBlur = 15;
+            } else {
+                ctx.shadowBlur = 0;
+            }
+            
+            // Draw the main body
+            ctx.beginPath();
+            ctx.arc(cx, cy, probeRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+             // Reset shadow so it doesn't affect other elements
+            ctx.shadowBlur = 0; 
+        }
+
+        /**
+         * Main drawing function called in the animation loop.
+         */
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.shadowBlur = 0; // Reset shadow for background
+            drawStars();
+            drawGround();
+            drawTarget();
+            drawTrajectory();
+            drawProjectile();
+        }
+
+        // --- Timer Functions ---
+
+        /**
+         * Clears the timer interval.
+         */
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        /**
+         * Starts the countdown timer for the hole.
+         */
+        function startTimer() {
+            stopTimer(); // Clear any existing timer
+            const level = LEVELS[currentLevelIndex];
+            
+            // Do not reset timeLeft here. It should continue from where it paused.
+            // If the projectile status is 'ready', it means we are starting a fresh hole or a new game,
+            // so we reset the time.
+            if(projectile.status === 'ready' || projectile.status === 'timeout') {
+                 // Only reset time if starting a new attempt (hole reset or initial start)
+                 timeLeft = level.timeLimit; 
+            }
+
+            const timerDisplay = document.getElementById('time-left-value');
+            const timerBox = timerDisplay.closest('div');
+            
+            // Initial style reset
+            timerBox.classList.remove('bg-orange-800/20');
+            timerBox.classList.add('bg-red-800/20');
+            timerBox.classList.remove('border-danger');
+            timerDisplay.classList.remove('text-danger');
+
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft.toFixed(0);
+
+                if (timeLeft <= 10 && timeLeft > 0) {
+                    timerBox.classList.remove('bg-red-800/20');
+                    timerBox.classList.add('bg-orange-800/20');
+                    timerBox.classList.add('border-danger');
+                    timerDisplay.classList.add('text-danger');
+                } else if (timeLeft > 10) {
+                    timerBox.classList.remove('bg-orange-800/20');
+                    timerBox.classList.add('bg-red-800/20');
+                    timerBox.classList.remove('border-danger');
+                    timerDisplay.classList.remove('text-danger');
+                }
+
+                if (timeLeft <= 0) {
+                    stopTimer();
+                    projectile.isFlying = false;
+                    projectile.status = 'timeout';
+
+                    document.getElementById('launch-button').disabled = true;
+                    document.getElementById('next-hole-button').disabled = true;
+                    showMessage(
+                        "TIME OUT!",
+                        `You ran out of time! The hole is over. Restart the hole to try again.<br><p>Hole Launches: **${holeLaunches}**</p>`,
+                        false
+                    );
+                }
+            }, 1000);
+        }
+
+        // --- Game Flow Control ---
+
+        /**
+         * Loads the next level or finishes the game.
+         */
+        function loadNextLevel() {
+            currentLevelIndex++;
+            if (currentLevelIndex < LEVELS.length) {
+                initHole(LEVELS[currentLevelIndex]);
+            } else {
+                // Game Finished
+                stopTimer();
+                showMessage(
+                    "SOLAR SYSTEM COURSE COMPLETE!",
+                    `You successfully conquered all ${LEVELS.length} planets and moons!<br>Your Total Score (Launches) is: <span class="text-3xl font-orbitron text-accent">${totalScore}</span>`,
+                    true
+                );
+                document.getElementById('next-hole-button').classList.add('hidden');
+                document.getElementById('launch-button').classList.add('hidden');
+                document.getElementById('reset-button').textContent = 'Play Again';
+            }
+        }
+
+        /**
+         * Initializes the current hole's parameters and state.
+         * @param {Object} level The level configuration object.
+         */
+        function initHole(level) {
+            g = level.g;
+            TARGET_DISTANCE = level.targetDistance;
+            holeLaunches = 0;
+            bestMissDistance = Infinity;
+
+            projectile = {
+                x: 0, 
+                y: 0, 
+                t: 0, 
+                isFlying: false, 
+                trajectory: [], // Reset trajectory
+                status: 'ready'
+            };
+
+            // Reset Timer and Speed status
+            stopTimer();
+            // timeLeft is reset inside startTimer when status is 'ready'
+            document.getElementById('time-left-value').textContent = level.timeLimit; 
+            document.getElementById('motion-status').textContent = 'Ready';
+            document.getElementById('current-speed-value').textContent = '0.00';
+            
+            updateLevelDisplay();
+            updateGameStatsDisplay();
+            updateCalculationsDisplay(); 
+            handleSliderChange(); // Ensures trajectory preview is drawn
+            document.getElementById('launch-button').disabled = false;
+            document.getElementById('launch-button').classList.remove('hidden');
+            document.getElementById('next-hole-button').classList.add('hidden');
+            document.getElementById('reset-button').textContent = 'Restart Game';
+            document.getElementById('reset-button').classList.remove('hidden'); 
+
+            // Start the hole timer (will reset timeLeft to level.timeLimit because status is 'ready')
+            startTimer();
+        }
+
+        /**
+         * Starts the launch simulation.
+         */
+        function launchProjectile() {
+            if (projectile.isFlying || timeLeft <= 0) return;
+
+            // *** CRITICAL CHANGE: Stop the timer immediately on launch ***
+            stopTimer(); 
+            
+            holeLaunches++;
+            totalScore++;
+            projectile.t = 0;
+            projectile.isFlying = true;
+            projectile.status = 'flying';
+            
+            // Set initial speed for status tracking
+            previousSpeed = calculateSpeed(0);
+
+            // Disable controls and update stats immediately
+            document.getElementById('launch-button').disabled = true;
+            document.getElementById('next-hole-button').disabled = true;
+            updateGameStatsDisplay();
+        }
+
+        /**
+         * Updates the projectile's position for animation.
+         */
+        function updatePhysics(deltaTime) {
+            if (!projectile.isFlying) {
+                // If not flying, update motion status if ready or landed
+                 if (projectile.status === 'ready') {
+                    document.getElementById('motion-status').textContent = 'Ready';
+                    document.getElementById('current-speed-value').textContent = calculateSpeed(0).toFixed(2);
+                } else if (projectile.status !== 'flying' && projectile.status !== 'timeout') {
+                     document.getElementById('motion-status').textContent = 'Landed';
+                     document.getElementById('current-speed-value').textContent = '0.00';
+                }
+                return;
+            }
+
+            // Time scale to slow down animation (slower than 1.0)
+            const timeScale = 0.5;
+            projectile.t += deltaTime * timeScale;
+
+            const newPos = calculatePosition(projectile.t);
+            projectile.x = newPos.x;
+            projectile.y = newPos.y;
+
+            // --- Speed and Motion Status Update ---
+            const currentSpeed = calculateSpeed(projectile.t);
+            const { vy } = calculateVelocity(projectile.t);
+            const motionStatusElement = document.getElementById('motion-status');
+            const speedValueElement = document.getElementById('current-speed-value');
+
+            speedValueElement.textContent = currentSpeed.toFixed(2);
+            motionStatusElement.classList.remove('text-accent', 'text-warning');
+            motionStatusElement.classList.add('text-indigo-400');
+            
+            if (vy > 0.05) {
+                motionStatusElement.textContent = 'Decelerating (Up)';
+            } else if (vy < -0.05) {
+                motionStatusElement.textContent = 'Accelerating (Down)';
+                motionStatusElement.classList.add('text-accent'); 
+                motionStatusElement.classList.remove('text-indigo-400');
+            } else {
+                motionStatusElement.textContent = 'Max Height (vx)';
+                motionStatusElement.classList.add('text-warning');
+                motionStatusElement.classList.remove('text-indigo-400');
+            }
+            // --- End New Speed Update ---
+
+
+            // Check for landing 
+            if (projectile.y <= GROUND_Y_WORLD && projectile.t > 0.05) {
+                // Ensure we use the actual landing position, which might be slightly off due to time stepping
+                const { x: landX } = calculatePosition(calculateKinematics(v0, angleDeg, g).tFlight);
+
+                projectile.isFlying = false;
+
+                const missDistance = Math.abs(landX - TARGET_DISTANCE);
+                const impactSpeed = calculateImpactVelocity(projectile.t);
+
+                // Update best miss distance
+                if (missDistance < bestMissDistance) {
+                    bestMissDistance = missDistance;
+                    updateGameStatsDisplay();
+                }
+
+                document.getElementById('launch-button').disabled = false;
+                document.getElementById('next-hole-button').disabled = false;
+
+                const statsText = `
+                    <p>Landing Range: **${landX.toFixed(2)} m**</p>
+                    <p>Missed by: **${missDistance.toFixed(2)} m**</p>
+                    <p>Impact Speed: **${impactSpeed.toFixed(2)} m/s**</p>
+                    <p>Hole Launches: **${holeLaunches}**</p>
+                `;
+                
+                if (missDistance <= HIT_TOLERANCE_M) {
+                    projectile.status = 'hit';
+                    showMessage(
+                        `HOLE SUCCESS! (${LEVELS[currentLevelIndex].name})`,
+                        statsText,
+                        true
+                    );
+                    // Show next hole button only if not the final level
+                    if (currentLevelIndex < LEVELS.length - 1) {
+                         document.getElementById('next-hole-button').classList.remove('hidden');
+                         document.getElementById('launch-button').classList.add('hidden');
+                    }
+                    // Timer remains stopped.
+                } else {
+                    projectile.status = 'miss';
+                    let title = landX > TARGET_DISTANCE ? "OVERSHOT! Try a lower velocity or angle." : "UNDERSHOT! Need more power or a higher angle.";
+                    showMessage(title, statsText, false);
+                    
+                    // *** CRITICAL CHANGE: Restart timer after a miss ***
+                    startTimer(); 
+                }
+            } else if (projectile.x > WORLD_WIDTH_M + 10) { // Check if it's far out of the defined world space
+                 // Too far off-screen
+                projectile.isFlying = false;
+                projectile.status = 'miss';
+                
+                // *** CRITICAL CHANGE: Restart timer after out-of-bounds ***
+                startTimer(); 
+                
+                showMessage(`OUT OF BOUNDS! Reset and try again.`, `<p>Hole Launches: **${holeLaunches}**</p>`, false);
+                document.getElementById('launch-button').disabled = false;
+            }
+        }
+
+        // --- Animation Loop ---
+
+        let lastTime;
+
+        function animate(timestamp) {
+            if (lastTime === undefined) {
+                lastTime = timestamp;
+            }
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            updatePhysics(deltaTime);
+            draw();
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners & Initialization ---
+
+        function handleSliderChange() {
+            v0 = parseFloat(document.getElementById('velocity-slider').value);
+            angleDeg = parseFloat(document.getElementById('angle-slider').value);
+
+            document.getElementById('velocity-value').textContent = v0;
+            document.getElementById('angle-value').textContent = angleDeg;
+
+            updateCalculationsDisplay();
+
+            if (projectile.status !== 'flying') {
+                precalculateTrajectory(); // Update trajectory preview
+            }
+        }
+
+        function precalculateTrajectory() {
+            projectile.trajectory = [];
+            const { tFlight } = calculateKinematics(v0, angleDeg, g);
+
+            // Calculate trajectory points up to a reasonable max time
+            const maxTime = tFlight > 0 ? tFlight : 15; // Limit flight time for preview
+            const steps = 100;
+            const timeStep = maxTime / steps;
+
+            for (let t = 0; t <= maxTime; t += timeStep) {
+                const { x, y } = calculatePosition(t);
+
+                // Stop drawing the path once it hits the ground (specifically needed for the physics check)
+                if (y <= GROUND_Y_WORLD && t > 0.05) break; 
+                
+                // Stop drawing the path once it's visually out of the defined world space
+                if (x > WORLD_WIDTH_M) break; 
+
+                projectile.trajectory.push({ x, y });
+            }
+            draw();
+        }
+
+        function startNewGame() {
+            currentLevelIndex = 0;
+            totalScore = 0;
+            initHole(LEVELS[0]);
+        }
+
+
+        function initGame() {
+            // --- FIX: Ensure canvas is sized first ---
+            resizeCanvas(); 
+            // Set up initial stars (now that the canvas size is correct)
+            initStars();
+
+            // Set up initial sliders
+            document.getElementById('velocity-slider').addEventListener('input', handleSliderChange);
+            document.getElementById('angle-slider').addEventListener('input', handleSliderChange);
+
+            // Set up action buttons
+            document.getElementById('launch-button').addEventListener('click', launchProjectile);
+            document.getElementById('reset-button').addEventListener('click', startNewGame);
+            document.getElementById('next-hole-button').addEventListener('click', loadNextLevel);
+
+            document.getElementById('closeMessage').addEventListener('click', () => {
+                document.getElementById('messageBox').classList.remove('show');
+            });
+            
+            // Add resize listener
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Initial game start
+            startNewGame();
+
+            // Start animation loop
+            requestAnimationFrame(animate);
+        }
+
+        // --- Mandatory Firebase/Auth Setup ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let db = null;
+        let auth = null;
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            async function authenticate() {
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Firebase signed in with custom token.");
+                    } else {
+                        await signInAnonymously(auth);
+                        console.log("Firebase signed in anonymously.");
+                    }
+                } catch (error) {
+                    console.error("Firebase authentication failed:", error);
+                }
+            }
+            authenticate();
+        } else {
+             console.log("Firebase config not available. Running without persistence.");
+        }
+        // --- End of Mandatory Firebase/Auth Setup ---
+
+        document.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
